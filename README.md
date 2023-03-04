@@ -24,6 +24,10 @@ Capability (so far):
 
 # How to use
 
+Clone repo and add `notiondown` to your executable paths.
+
+Add the notion python library
+
 ```
 pip install notion
 ```
@@ -44,26 +48,25 @@ Note: You can then move your pages around in Notion. They still sync with your l
 4. Push your file
 
 ```
-python notiondown.py write mymarkdownfile.md
+ndown write mymarkdownfile.md
 ```
 
 5. Edit in Notion
 
-Refresh the changes to your local file
+Get those changes to your local file
 
 ```
-python notiondown.py read mymarkdownfile.md
+ndown read mymarkdownfile.md
 ```
+
+Note: local changes will get overwritten!
 
 To get a file you previously created in Notion, get the ID of that file (see 2) and run:
 
 ```
-python notiondown.py get _theIDofYourNotionPage_
+ndown get _theIDofYourNotionPage_
 ```
 
 # How it works
 
 When you get, read or write a Notion page, the page ID is stored as a hidden file, which has the same name as your markdown file with the extension `.id`. This ID stays the same, even if you move the Notion page around. So organise your stuff locally or in Notion and keep read/writing. Just be sure to keep the hidden id file and the markdown file in the same folder (I played with storing the id in the file name or somewhere inside the file - both are ugly options).
-
-
-
