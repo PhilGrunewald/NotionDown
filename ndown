@@ -11,10 +11,11 @@ An explanation of the notion package:
 https://medium.com/@jamiealexandre/introducing-notion-py-an-unofficial-python-api-wrapper-for-notion-so-603700f92369
 https://github.com/jamalex/notion-py/blob/master/README.md
 
-needed a chance of limits in the code base itself from 10000 to 100!!
+needed a change of limits in the code base itself from 10000 to 100 to work!!
 in 
 store.py
 client.py
+Hope this is fixed in future releases...
 
 """
 
@@ -118,7 +119,6 @@ if __name__ == "__main__":
         path,fileName,extension = getPathNameExtension(sys.argv[2])
         try:
             # get page (if ID and matching page exist)
-            print(fileName)
             with open(f"{path}.{fileName}.id",'r') as f:
                 notionID = f.readline()
             page = client.get_block(f"{notion}{notionID}")
@@ -128,9 +128,9 @@ if __name__ == "__main__":
                 page_id = f.readline()
             root = client.get_block(f"{notion}{page_id}")
             page = root.children.add_new(PageBlock, title=fileName.replace('_',' '))
-            # create hidden ID file
             notionID = page.id.replace('-','')
 
+    # create hidden ID file
     with open(f"{path}.{fileName}.id",'w') as f:
         f.write(notionID)
 
