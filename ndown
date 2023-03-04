@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+
+import shutil
+import sys, os
+from notion.client import NotionClient
+from notion.block import PageBlock, TextBlock, TodoBlock, HeaderBlock, SubheaderBlock, SubsubheaderBlock, BulletedListBlock
+
+"""
+An explanation of the notion package:
+
+https://medium.com/@jamiealexandre/introducing-notion-py-an-unofficial-python-api-wrapper-for-notion-so-603700f92369
+https://github.com/jamalex/notion-py/blob/master/README.md
+
+needed a chance of limits in the code base itself from 10000 to 100!!
+in 
+store.py
+client.py
+
+"""
+
+def NotionRead(page,fileName):
+    with open(fileName,'w') as f:
+        f.write(f"# {page.title}\n")
+        for child in page.children:
+            typ = client.get_record_data("block", child.id)['type']
+            match typ:
+                case "bulleted_list":
+                    f.write(f"- {child.title}\n")
+                case "to_do":
+                    state = client.get_record_data("block", child.id)['properties']
+                    if 'checked' in state:
+                        if state['checked'] == [['Yes']]:
+                            f.write(f"✓ {child.title}\n")
+                        else:
+                            f.write(f"✗ {child.title}\n")
+                    else:
+                        f.write(f"✗ {child.title}\n")
+                case "header":
+                    f.write(f"# {child.title}\n")
+                case "sub_header":
+                    f.write(f"## {child.title}\n")
+                case "sub_sub_header":
+                    f.write(f"### {child.title}\n")
+                case "code":
+                    f.write(f"```\n {child.title}\n```\n")
+                case other:
+                    f.write(f"{child.title}\n")
+
+def NotionWrite(page,fileName):
+    """ delete and re-polulate Notion page """
+    # delete all lines
+    for child in page.children:
+        child.remove()
+    # re-write
+    with open(fileName,'r') as f:
+        lines = f.readlines()
+        page.title = lines[0].replace('%','')
+        lines.pop(0)
+        for i,line in enumerate(lines):
+            checked = False
+            if line.startswith('- '):
+                _type = BulletedListBlock
+                line = line[2:]
+            elif line.startswith('✗ '):
+                _type = TodoBlock
+                line = line[2:]
+            elif line.startswith('✓ '):
+                _type = TodoBlock
+                line = line[2:]
+                checked = True
+            elif line.startswith('###'):
+                _type = SubsubheaderBlock
+            elif line.startswith('##'):
+                _type = SubheaderBlock
+            elif line.startswith('#'):
+                _type = HeaderBlock
+            else:
+                _type = TextBlock
+            if i+1 < len(lines):
+                if lines[i+1].startswith('--'):
+                    _type = SubheaderBlock
+                elif lines[i+1].startswith('=='):
+                    _type = HeaderBlock
+            if not (line.startswith('--') or line.startswith('==')):
+                child = page.children.add_new(_type, title=line)
+            if checked:
+                child.checked = True
+
+def getPathNameExtension(filepath):
+    extension = filepath.split('.')[-1]
+    fileName = filepath.split('/')[-1].split('.')[0]
+    path = filepath.split(fileName)[0]
+    return path,fileName,extension
+
+
+if __name__ == "__main__":
+    """ arguments:
+    1: read/write
+    2: markdown file (with path and extension)
+    OR
+    1: get
+    2: Notion ID (to get a Notion page)
+    """
+
+    local = os.path.dirname(__file__)
+    with open(f'{local}/token_v2','r') as f:
+        token_v2 = f.readline()
+    client = NotionClient(token_v2=token_v2[:-1])
+    notion = "https://www.notion.so/"
+    extension = 'md'
+
+    if sys.argv[1] == 'get':
+        notionID = sys.argv[2]
+        page = client.get_block(f"{notion}{notionID}")
+        path = './'
+        fileName = page.title.replace(' ','_')
+    else:
+        path,fileName,extension = getPathNameExtension(sys.argv[2])
+        try:
+            # get page (if ID and matching page exist)
+            print(fileName)
+            with open(f"{path}.{fileName}.id",'r') as f:
+                notionID = f.readline()
+            page = client.get_block(f"{notion}{notionID}")
+        except:
+            # add new page 
+            with open(f'{local}/page_id','r') as f:
+                page_id = f.readline()
+            root = client.get_block(f"{notion}{page_id}")
+            page = root.children.add_new(PageBlock, title=fileName.replace('_',' '))
+            # create hidden ID file
+            notionID = page.id.replace('-','')
+
+    with open(f"{path}.{fileName}.id",'w') as f:
+        f.write(notionID)
+
+    fileName = f"{fileName}.{extension}"
+    if sys.argv[1] == "write":
+        NotionWrite(page,fileName)
+    else: # read or get
+        NotionRead(page,fileName)
