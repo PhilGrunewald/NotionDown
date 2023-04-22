@@ -24,6 +24,8 @@ def NotionRead(page,fileName):
         f.write(f"# {page.title}\n")
         for child in page.children:
             typ = client.get_record_data("block", child.id)['type']
+            if typ in nonMarkdown:
+                f.write(f"% Notion {typ}\n")
             match typ:
                 case "bulleted_list":
                     f.write(f"- {child.title}\n")
@@ -33,9 +35,9 @@ def NotionRead(page,fileName):
                         if state['checked'] == [['Yes']]:
                             f.write(f"✓ {child.title}\n")
                         else:
-                            f.write(f"✗ {child.title}\n")
+                            f.write(f"o {child.title}\n")
                     else:
-                        f.write(f"✗ {child.title}\n")
+                        f.write(f"o {child.title}\n")
                 case "header":
                     f.write(f"# {child.title}\n")
                 case "sub_header":
@@ -44,14 +46,24 @@ def NotionRead(page,fileName):
                     f.write(f"### {child.title}\n")
                 case "code":
                     f.write(f"```\n {child.title}\n```\n")
-                case other:
+                case "text":
                     f.write(f"{child.title}\n")
+                case "page":
+                    f.write(f"[{child.title}]({notion}{child.id.replace('-','')})\n")
+                case "image":
+                    f.write(f"![]({child.source})\n")
+                case "alias":
+                    f.write(f"[Link]({notion}{child.id.replace('-','')})\n")
+                case other:
+                    f.write(f"{typ}: {child}\n")
 
 def NotionWrite(page,fileName):
     """ delete and re-polulate Notion page """
     # delete all lines
     for child in page.children:
-        child.remove()
+        typ = client.get_record_data("block", child.id)['type']
+        if typ not in nonMarkdown:
+            child.remove()
     # re-write
     with open(fileName,'r') as f:
         lines = f.readlines()
@@ -62,10 +74,10 @@ def NotionWrite(page,fileName):
             if line.startswith('- '):
                 _type = BulletedListBlock
                 line = line[2:]
-            elif line.startswith('✗ '):
+            elif line.startswith('o '):
                 _type = TodoBlock
                 line = line[2:]
-            elif line.startswith('✓ '):
+            elif (line.startswith('x ') or line.startswith('✓ ')):
                 _type = TodoBlock
                 line = line[2:]
                 checked = True
@@ -102,6 +114,7 @@ if __name__ == "__main__":
     1: get
     2: Notion ID (to get a Notion page)
     """
+    nonMarkdown = ['page','image','table','collection_view','external_object_instance']
 
     local = os.path.dirname(__file__)
     with open(f'{local}/token_v2','r') as f:
@@ -117,15 +130,19 @@ if __name__ == "__main__":
         fileName = page.title.replace(' ','_')
     else:
         path,fileName,extension = getPathNameExtension(sys.argv[2])
-        try:
-            # get page (if ID and matching page exist)
-            with open(f"{path}.{fileName}.id",'r') as f:
-                notionID = f.readline()
-            page = client.get_block(f"{notion}{notionID}")
-        except:
+        if os.path.exists(f"{path}.{fileName}.id"):
+            try:
+                # get page (if ID and matching page exist)
+                with open(f"{path}.{fileName}.id",'r') as f:
+                    notionID = f.readline()
+                page = client.get_block(f"{notion}{notionID}")
+            except:
+                print("Error in getting Notion ID page")
+        else:
             # add new page 
             with open(f'{local}/page_id','r') as f:
                 page_id = f.readline()
+            page_id = page_id.split('\n')[0]
             root = client.get_block(f"{notion}{page_id}")
             page = root.children.add_new(PageBlock, title=fileName.replace('_',' '))
             notionID = page.id.replace('-','')
